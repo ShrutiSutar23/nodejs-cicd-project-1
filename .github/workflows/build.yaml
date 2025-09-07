@@ -1,0 +1,60 @@
+name: Nodejs CI/CD pipeline
+on:
+    push:
+        branches: ["main"]
+    pull_requests:
+        branches: ["main"]
+jobs:
+    build:
+        runs-on: ubuntu-latest
+        steps:
+          - name: Checkout code
+            uses: actions/checkout@v4
+          - name: Setup Nodejs
+            uses: actions/setup nodejs@v3
+            with:
+              node-version: 18
+
+          - name: install Dependencies
+            run: npm install
+            Working-directory: ./app/
+
+          - name: Sonarqube token
+            uses: sonarsource/sonarqube-scan-action@v3
+            with:
+              args: >
+                -Dsonar.projectKey=node-prom-app
+                -Dsonar.sources=.
+              env:
+                SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+                SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+          - name: docker login
+            run: echo “${{ secrets.DOCKER_PASSWORD }}” | docker login -u “${{ secrets.DOCKER_USERNAME }}”
+
+          - name: Build Docker images
+            run: docker build -t ${{ secrets.DOCKER_USERNAME }}/first-class-prject:${{ github.sha }} -f app/Dockerfile .
+
+          - name: Trivy
+            uses: aquasecurity/trivy-action@0.28.0
+            with:
+              image-ref: ${{ secrets.DOCKER_USERNAME }}/first-class-project:${{ github.sha }}
+              format: 'table'
+              severity: 'CRITICAL,HIGH'
+
+          - name: Push Docker images
+            run: docker push ${{ secrets.DOCKER_USERNAME }}/first-class-project:${{ github.sha }}
+
+
+          - name: Configure AWS credentials
+            uses: aws-actions/configure-aws-credentials@v4
+            with:
+              aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+              aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY}}
+              aws-region: us-east-1
+
+          - name: Update kubeconfig for EKs
+            run: aws eks update-kubeconfig --region us-east-1 --name nodejs-cluster
+
+          - name: Test Kubernetes access
+            run: kubectl get nodes
