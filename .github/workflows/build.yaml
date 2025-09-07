@@ -17,17 +17,18 @@ jobs:
 
           - name: install Dependencies
             run: npm install
-            working-directory: ./app/
+            working-directory: ./app
 
-          - name: Sonarqube token
+          - name: SonarQube Scan
             uses: sonarsource/sonarqube-scan-action@v3
             with:
-              args: >
-                -Dsonar.projectKey=node-prom-app
-                -Dsonar.sources=.
+               args: >
+                    -Dsonar.projectKey=node-prom-app
+                    -Dsonar.sources=.
             env:
-                SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-                SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+               SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+               SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
 
           - name: docker login
             run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}"
